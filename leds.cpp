@@ -66,7 +66,7 @@ struct Instruction {
 		case OUT: std::cout << "out (0),a" << std::endl;					break;
 		case RLCA: std::cout << "rlca" << std::endl;						break;
 		case RRCA: std::cout << "rrca" << std::endl;						break;
-		case DJNZ: std::cout << "djnz" << data << std::endl;				break;
+		case DJNZ: std::cout << "djnz " << (int)data << std::endl;			break;
 		case END: std::cout << "END" << std::endl;							break;
 		default: std::cout << "ILLEGAL INSTRUCTION :" << type << std::endl; break;
 		}
@@ -96,8 +96,10 @@ void run(std::string file_name) {
 	std::vector<Instruction> instructions;
 	std::unordered_map<std::string, std::uint8_t> label_indexes; // TODO: spelling? 
 	std::array<Led_State, 8> leds = { OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF };
-   
+	int instruction_index = 0;
+
 	// parse the file
+	// TODO: try std::regex instead
 	std::ifstream in_file(file_name);
 	if (!in_file.is_open()) {
 		std::cout << "Error: could not open file '" << file_name << "'" << std::endl;
@@ -139,9 +141,23 @@ void run(std::string file_name) {
 				}
 				else if (s == "djnz ") {
 					std::string label = str.substr(5, str.size()); // rest of the string
+					int index = label_indexes[label]; // TODO: what if label doesnt exist? 
+					// note: problem description guarantees jumps to label will always be backwards - so label should already exist
+					instructions.push_back(Instruction(DJNZ, index));
 				}
 				else {
-					std::cout << "error parsing line, skipping:   " << line << std::endl;
+					// try to read string as a label
+					// note: technically according to the problem description labels are not allowed to have whitespace in front of them but oh well
+					int colon_index = str.find_first_of(':');
+					if (colon_index != std::string::npos) {
+						// TODO: not as strict as problem description for label, fix later
+						std::string label = str.substr(0, colon_index);
+						label_indexes.insert({ label, instructions.size() }); // TODO: what if label is after last instruction?
+					}
+					else {
+						// no : found, cant be a label
+						std::cout << "error parsing line, skipping:   " << line << std::endl;
+					}
 				}
 			}
 			/*else if () {
@@ -156,17 +172,17 @@ void run(std::string file_name) {
    instructions.push_back(Instruction(END));
    
    // run the file
-   int instruction_index = 0;
+   
    for (const Instruction& instr : instructions) {
 	   instr.print();
    }
 }
 
 int main(void) {
-   run("input1.txt");
+   //run("input1.txt");
    //run("input2.txt");
    //run("input3.txt");
-   //run("input4.txt");
+   run("input4.txt");
    
    return 0;
 }
