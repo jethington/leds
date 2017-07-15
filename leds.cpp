@@ -6,16 +6,10 @@
 #include <cassert>
 #include <fstream>
 #include <vector>
-#include <array>
 #include <unordered_map>
 #include <cstdint>
 #include <sstream>
 #include <iomanip>
-
-typedef enum {
-    OFF = 0,
-    ON = 1
-} Led_State;
 
 /* grammar of our mini programming language:
 
@@ -43,11 +37,10 @@ typedef enum {
 
 struct Instruction {
     Instruction(Instruction_t type, std::uint8_t data) : type(type), data(data) {
-		//assert((type == LOAD_A) || (type == LOAD_B) || (type == DJNZ)); 
-		// TODO: assert always fails because other constructor calls this one
+		assert((type == LOAD_A) || (type == LOAD_B) || (type == DJNZ)); 
 		// TODO: would be nice to separate LOAD from DJNZ...
     }
-    Instruction(Instruction_t type) : Instruction(type, 0u) {
+    Instruction(Instruction_t type) : type(type), data(0u) {
 		assert((type == OUT) || (type == RLCA) ||(type == RRCA) || (type == END));
     }
     const Instruction_t type;
@@ -77,9 +70,24 @@ private:
 };
 
 void run(std::string file_name);
-std::string leds_to_string(std::array<Led_State, 8> leds);
+std::string leds_to_string(uint8_t register_a);
 
-std::string leds_to_string(std::array<Led_State, 8> leds) {
+std::string leds_to_string(uint8_t register_a) {
+	std::string str;
+	for (int i = 0; i < 8; i++) {
+		uint8_t led = register_a & (0x80u >> i);
+		if (led == 0) {
+			str.push_back('.'); // 0 = Off
+		}
+		else {
+			str.push_back('*'); // 1 = On
+		}
+	}
+	return str;
+}
+//std::string leds_to_string(std::array<Led_State, 8> leds); // TODO: don't need this?  instead have out() function state-of-A -> std::string?
+
+/*std::string leds_to_string(std::array<Led_State, 8> leds) {
 	std::string str;
 	for (int i = 7; i >= 0; i--) {
 		if (leds[i] == OFF) {
@@ -90,13 +98,11 @@ std::string leds_to_string(std::array<Led_State, 8> leds) {
 		}
 	}
 	return str;
-}
+}*/
 
 void run(std::string file_name) {   
 	std::vector<Instruction> instructions;
-	std::unordered_map<std::string, std::uint8_t> label_indexes; // TODO: spelling? 
-	std::array<Led_State, 8> leds = { OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF };
-	int instruction_index = 0;
+	std::unordered_map<std::string, std::uint8_t> label_indexes; // TODO: spelling?
 
 	// parse the file
 	// TODO: try std::regex instead
@@ -160,29 +166,26 @@ void run(std::string file_name) {
 					}
 				}
 			}
-			/*else if () {
-
-			}
-			else {
-				// TODO: handle LOAD_A, LOAD_B, DJNZ, labels, and everything else (parse error)
-			}*/
 		}
 		
    }
    instructions.push_back(Instruction(END));
    
    // run the file
-   
+   int instruction_index = 0;
+   uint8_t a;
+   uint8_t b;
+
    for (const Instruction& instr : instructions) {
 	   instr.print();
    }
 }
 
 int main(void) {
-   //run("input1.txt");
+   run("input1.txt");
    //run("input2.txt");
    //run("input3.txt");
-   run("input4.txt");
+   //run("input4.txt");
    
    return 0;
 }
