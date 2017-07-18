@@ -61,7 +61,7 @@ struct Instruction {
 		case RRCA: std::cout << "rrca" << std::endl;						break;
 		case DJNZ: std::cout << "djnz " << (int)data << std::endl;			break;
 		case END: std::cout << "END" << std::endl;							break;
-		default: std::cout << "ILLEGAL INSTRUCTION :" << type << std::endl; break;
+		default: std::cout << "ILLEGAL INSTRUCTION :" << type << std::endl; break; // should be unreachable
 		}
 	}
 private:   
@@ -85,21 +85,8 @@ std::string leds_to_string(uint8_t register_a) {
 	}
 	return str;
 }
-//std::string leds_to_string(std::array<Led_State, 8> leds); // TODO: don't need this?  instead have out() function state-of-A -> std::string?
 
-/*std::string leds_to_string(std::array<Led_State, 8> leds) {
-	std::string str;
-	for (int i = 7; i >= 0; i--) {
-		if (leds[i] == OFF) {
-			str.push_back('.');
-		}
-		else {
-			str.push_back('*');
-		}
-	}
-	return str;
-}*/
-
+// TODO: split up this function?
 void run(std::string file_name) {   
 	std::vector<Instruction> instructions;
 	std::unordered_map<std::string, std::uint8_t> label_indexes; // TODO: spelling?
@@ -168,24 +155,74 @@ void run(std::string file_name) {
 			}
 		}
 		
-   }
-   instructions.push_back(Instruction(END));
+    }
+    instructions.push_back(Instruction(END));
    
-   // run the file
-   int instruction_index = 0;
-   uint8_t a;
-   uint8_t b;
+	// print the file
+	//for (const Instruction& instr : instructions) {
+	//instr.print();
+	//}
 
-   for (const Instruction& instr : instructions) {
-	   instr.print();
-   }
+    // run the file
+    int instruction_index = 0;
+    uint8_t a;
+    uint8_t b;
+	bool done = false;
+	while (!done) {
+		Instruction next = instructions[instruction_index];
+		instruction_index++;
+
+		switch (next.type) {
+		case LOAD_A:
+			a = next.get_load_value();
+			break;
+
+		case LOAD_B:
+			b = next.get_load_value();
+			break;
+
+		case OUT:
+			std::cout << leds_to_string(a) << std::endl;
+			break;
+
+		case RLCA: {
+			uint8_t temp = a >> 7;
+			a = (a << 1) | temp;
+			break;
+		}
+		case RRCA: {
+			uint8_t temp = a << 7;
+			a = (a >> 1) | temp;
+			break;
+		}
+		case DJNZ: 
+			// dont decrement if already 0
+			if (b > 0u) {
+				b--;
+			}
+			// if still not 0 after decrement, jump
+			if (b > 0u) {
+				instruction_index = next.get_label();
+			}
+			break;
+
+		case END: 
+			done = true;
+			break;
+
+		default: 
+			std::cout << "ILLEGAL INSTRUCTION :" << next.type << std::endl;
+			done = true; // this should be unreachable - end immediately if something gones this wrong
+			break;
+		}
+	}
 }
 
 int main(void) {
-   run("input1.txt");
+   //run("input1.txt");
    //run("input2.txt");
    //run("input3.txt");
-   //run("input4.txt");
+   run("input4.txt");
    
    return 0;
 }
