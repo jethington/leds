@@ -23,6 +23,7 @@ use std::collections::HashMap;
                       djnz <labelref>             
 */
 
+#[derive(Debug, PartialEq)]
 enum Line {
     Instruction( Instruction ),
     Label( String ),
@@ -30,6 +31,7 @@ enum Line {
     ParseError
 }
 
+#[derive(Debug, PartialEq)]
 enum Instruction {
     LoadA( u8 ),
     LoadB( u8 ),
@@ -126,7 +128,6 @@ fn run_file(file_name: &str) {
     let mut file = File::open(file_name).expect(&(format!("Failed to open {}", file_name))); // TODO: error handling here!
     let mut contents = String::new();
     file.read_to_string(&mut contents).expect(&(format!("Failed to read from {}", file_name)));
-    //let mut labels = vec![]; // TODO: replace with map
     
     // JCE: does &str actually work here?  looks like possibly yes:
     // https://users.rust-lang.org/t/efficient-string-hashmaps-for-a-frequency-count/7752/2
@@ -170,12 +171,13 @@ fn test_try_register_load() {
 #[test]
 #[allow(dead_code)]
 fn test_try_label() {
-    assert_eq!(test_try_label("lbl:"), Line::Label("lbl")); // String::from() ?
-    assert_eq!(test_try_label("longer_label:"), Line::Label("longer_label"));
-    assert_eq!(test_try_label("bad:label:"), Line::ParseError);
-    assert_eq!(test_try_label("toomanycolons::"), Line::ParseError);
-    assert_eq!(test_try_label("foo"), Line::ParseError);
-    assert_eq!(test_try_label(":bar"), Line::ParseError);
+    let labels: HashMap<String, usize> = HashMap::new();
+    assert_eq!(try_label("lbl:", &labels), Line::Label("lbl".to_owned())); // String::from() ?
+    assert_eq!(try_label("longer_label:", &labels), Line::Label("longer_label".to_owned()));
+    assert_eq!(try_label("bad:label:", &labels), Line::ParseError);
+    assert_eq!(try_label("toomanycolons::", &labels), Line::ParseError);
+    assert_eq!(try_label("foo", &labels), Line::ParseError);
+    assert_eq!(try_label(":bar", &labels), Line::ParseError);
 }
 
 #[test]
@@ -187,15 +189,17 @@ fn test_try_jump() {
 #[test]
 #[allow(dead_code)]
 fn test_parse() {
+    let labels: HashMap<String, usize> = HashMap::new();
+
     // make sure correct boolean is supplied to try_register_load()
-    assert_eq!(parse("  ld a,4"), Line::Instruction(Instruction::LoadA(4)));
-    assert_eq!(parse("ld b, 4   "), Line::Instruction(Instruction::LoadB(4)));
+    assert_eq!(parse("  ld a,4", &labels), Line::Instruction(Instruction::LoadA(4)));
+    assert_eq!(parse("ld b, 4   ", &labels), Line::Instruction(Instruction::LoadB(4)));
     
     // test instructions that don't have a dedicated function
-    assert_eq!(parse("    "), Line::Empty);
-    assert_eq!(parse(" rlca  "), Line::Instruction(Instruction::Rlca));
-    assert_eq!(parse("  rrca "), Line::Instruction(Instruction::Rrca));
-    assert_eq!(parse(" out (0),a "), Line::Instruction(Instruction::Out));
+    assert_eq!(parse("    ", &labels), Line::Empty);
+    assert_eq!(parse(" rlca  ", &labels), Line::Instruction(Instruction::Rlca));
+    assert_eq!(parse("  rrca ", &labels), Line::Instruction(Instruction::Rrca));
+    assert_eq!(parse(" out (0),a ", &labels), Line::Instruction(Instruction::Out));
     
     // note: whitespace handling is covered in above tests
 }
