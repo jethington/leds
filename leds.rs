@@ -36,11 +36,11 @@ enum Instruction {
     Out,
     Rlca,
     Rrca,
-    Djnz{ label_index: u8 },
-    End
+    Djnz{ index: usize },
 }
 
 impl Instruction {
+    #[allow(dead_code)]
     fn to_string(&self) -> String {
         match self {
             &Instruction::LoadA( a ) => format!("ld a,{}", a),
@@ -48,8 +48,7 @@ impl Instruction {
             &Instruction::Out => String::from("out (0),a"),
             &Instruction::Rlca => String::from("rlca"),
             &Instruction::Rrca => String::from("rrca"),
-            &Instruction::Djnz{ label_index } => format!("djnz {}", label_index),
-            &Instruction::End => String::from("End"),
+            &Instruction::Djnz{ index } => format!("djnz {}", index),
        }
     }
 }
@@ -97,8 +96,8 @@ fn try_jump(trimmed: &str, labels: &HashMap<String, usize>) -> Line {
     
     // note: am I in trouble because trimmed is an &str instead of a string?
     
-    match labels.get(trimmed.to_owned()) {
-        Some(line) => Line::Instruction(Instruction::Djnz{ line }),
+    match labels.get(trimmed) {
+        Some(line) => Line::Instruction(Instruction::Djnz{ index: *line }),
         None => Line::ParseError,
     }
 }
@@ -138,15 +137,15 @@ fn run_file(file_name: &str) {
     let mut index: usize = 0;
     for line in contents.lines() {
         match parse(line, &labels) {
-            Line::Label(name) => labels.insert(String::from(name), index),
-            _ => ()
+            Line::Label(name) => { labels.insert(String::from(name), index); },
+            _ => (),
         }
         index += 1;
     }
     
     index = 0;
-    while (index < instructions.len()) {
-    
+    while index < instructions.len() {
+ 
         index += 1;
     }
 }
@@ -162,7 +161,7 @@ fn main() {
 fn test_try_register_load() {
     assert_eq!(try_register_load("ld a,4", true), Line::Instruction(Instruction::LoadA(4)));
     assert_eq!(try_register_load("ld a, 4", true), Line::Instruction(Instruction::LoadA(4)));
-    assert_eq!(try_register_load("ld b, 4", false"), Line::Instruction(Instruction::LoadB(4)));
+    assert_eq!(try_register_load("ld b, 4", false), Line::Instruction(Instruction::LoadB(4)));
     assert_eq!(try_register_load("ld a, 400", true), Line::ParseError);
     assert_eq!(try_register_load("ld a, a123", true), Line::ParseError);
     assert_eq!(try_register_load("ld a,", true), Line::ParseError);
@@ -170,7 +169,7 @@ fn test_try_register_load() {
 
 #[test]
 #[allow(dead_code)]
-fn test_try_label {
+fn test_try_label() {
     assert_eq!(test_try_label("lbl:"), Line::Label("lbl")); // String::from() ?
     assert_eq!(test_try_label("longer_label:"), Line::Label("longer_label"));
     assert_eq!(test_try_label("bad:label:"), Line::ParseError);
@@ -193,7 +192,7 @@ fn test_parse() {
     assert_eq!(parse("ld b, 4   "), Line::Instruction(Instruction::LoadB(4)));
     
     // test instructions that don't have a dedicated function
-    assert_eq!(parse("    "), Line::Empty;
+    assert_eq!(parse("    "), Line::Empty);
     assert_eq!(parse(" rlca  "), Line::Instruction(Instruction::Rlca));
     assert_eq!(parse("  rrca "), Line::Instruction(Instruction::Rrca));
     assert_eq!(parse(" out (0),a "), Line::Instruction(Instruction::Out));
@@ -209,3 +208,4 @@ fn test_leds_to_string() {
     assert_eq!(leds_to_string(0xAA), "*.*.*.*.");
     assert_eq!(leds_to_string(0x0F), "....****");
 }
+
