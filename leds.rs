@@ -57,7 +57,7 @@ impl Instruction {
 
 fn leds_to_string(register_a: u8) -> String {
     let mut result = String::new();
-    for c in (0..7).map(|x| (0x80 >> x) & register_a) {
+    for c in (0..8).map(|x| (0x80 >> x) & register_a) {
         match c {
             0 => result.push('.'),
             _ => result.push('*'),
@@ -105,18 +105,39 @@ fn try_jump(trimmed: &str, labels: &HashMap<String, usize>) -> Line {
 }
 
 fn try_label(trimmed: &str, labels: &HashMap<String, usize>) -> Line {
-    if labels.contains_key(trimmed) {
-        Line::ParseError
+    let mut temp = trimmed.to_owned(); // TODO: better name    
+    match temp.pop() {
+        // last char in trimmed line should be the semicolon
+        Some(':') => {
+            // label must be a valid format, and cannot match an existing label
+            if is_identifier(&temp) && !labels.contains_key(&temp) {
+                Line::Label(temp)
+            }
+            else {
+                Line::ParseError
+            }
+        },
+        _ => Line::ParseError,
     }
-    else {
-        // TODO: still need to see if it makes a valid label
-        Line::ParseError
-    } 
+}
+
+fn is_identifier(chars: &str) -> bool {
+    // this function determines which characters I allow in the name of a label
+    let mut ret: bool = true;
+    for c in chars.chars() {
+        if !c.is_alphanumeric() && c != '_' {
+            ret = false;
+            break;
+        }
+    }
+    ret
 }
 
 // TODO: boolean instead of another enum is kind of a hack, but im lazy
 fn try_register_load(trimmed: &str, register_a: bool) -> Line {
     let load_value = &trimmed[5..trimmed.len()].parse::<u8>();
+    //let temp_slice = trimmed[5..trimmed.len()].trim(); // TODO: is allowing a space here actually required?
+    //let load_value = &temp_slice.parse::<u8>();
     match (register_a, load_value) {
         (true, &Ok(a)) => Line::Instruction(Instruction::LoadA(a)),
         (false, &Ok(b)) => Line::Instruction(Instruction::LoadB(b)),
@@ -161,10 +182,10 @@ fn main() {
 #[allow(dead_code)]
 fn test_try_register_load() {
     assert_eq!(try_register_load("ld a,4", true), Line::Instruction(Instruction::LoadA(4)));
-    assert_eq!(try_register_load("ld a, 4", true), Line::Instruction(Instruction::LoadA(4)));
-    assert_eq!(try_register_load("ld b, 4", false), Line::Instruction(Instruction::LoadB(4)));
-    assert_eq!(try_register_load("ld a, 400", true), Line::ParseError);
-    assert_eq!(try_register_load("ld a, a123", true), Line::ParseError);
+    assert_eq!(try_register_load("ld a,4", true), Line::Instruction(Instruction::LoadA(4)));
+    assert_eq!(try_register_load("ld b,4", false), Line::Instruction(Instruction::LoadB(4)));
+    assert_eq!(try_register_load("ld a,400", true), Line::ParseError);
+    assert_eq!(try_register_load("ld a,a123", true), Line::ParseError);
     assert_eq!(try_register_load("ld a,", true), Line::ParseError);
 }
 
@@ -193,7 +214,7 @@ fn test_parse() {
 
     // make sure correct boolean is supplied to try_register_load()
     assert_eq!(parse("  ld a,4", &labels), Line::Instruction(Instruction::LoadA(4)));
-    assert_eq!(parse("ld b, 4   ", &labels), Line::Instruction(Instruction::LoadB(4)));
+    assert_eq!(parse("ld b,4   ", &labels), Line::Instruction(Instruction::LoadB(4)));
     
     // test instructions that don't have a dedicated function
     assert_eq!(parse("    ", &labels), Line::Empty);
