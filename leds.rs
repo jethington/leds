@@ -155,22 +155,47 @@ fn run_file(file_name: &str) {
     // would need to refactor, label is technically a slice of line but currently a copy is created
     
     let mut instructions: Vec<Instruction> = vec![];
-    let mut labels: HashMap<String, usize> = HashMap::new(); // TODO: is usize the right type of index?
-    let mut index: usize = 0;
+    let mut labels: HashMap<String, usize> = HashMap::new();
+
+    // parse the input file into instructions
     for line in contents.lines() {
         match parse(line, &labels) {
-            Line::Label(name) => { labels.insert(String::from(name), index); },
-            _ => (),
+            Line::Label(name) => { labels.insert(String::from(name), instructions.len()); },
+            Line::Instruction(instruction) => instructions.push(instruction),
+            Line::Empty => (),
+            Line::ParseError => (),
         }
-        index += 1;
     }
     
-    index = 0;
-    while index < instructions.len() {
- 
-        index += 1;
+    // execute the instructions
+    let mut register_a: u8 = 0;
+    let mut register_b: u8 = 0;
+    let mut instruction_index: usize = 0;
+    while instruction_index < instructions.len() {
+        match instructions[instruction_index] {
+            Instruction::LoadA(a) => register_a = a,
+            Instruction::LoadB(b) => register_b = b,
+            Instruction::Out => { println!("{}", leds_to_string(register_a)); },
+            Instruction::Rlca => register_a = register_a.rotate_left(1),
+            Instruction::Rrca => register_a = register_a.rotate_right(1),
+            Instruction::Djnz{index: i} => {
+                register_b = register_b.saturating_sub(1); // don't decrement if already 0
+                if register_b > 0 {
+                    instruction_index = i;
+                    continue; // don't want to add 1 in this case, so skip that part
+                }
+            },
+        }
+        instruction_index += 1;
     }
 }
+
+/*  LoadA( u8 ),
+    LoadB( u8 ),
+    Out,
+    Rlca,
+    Rrca,
+    Djnz{ index: usize },*/
 
 fn main() {
     print!("Hello!");
