@@ -2,12 +2,9 @@
 // https://www.reddit.com/r/dailyprogrammer/comments/5as91q/20161102_challenge_290_intermediate_blinking_leds/
 // port of the c++ version
 
-//use std::io;
-//use std::io::Write;
 use std::fs::File;
 use std::io::prelude::*;
 use std::collections::HashMap;
-
 
 /* grammar of our mini programming language:
 
@@ -57,8 +54,8 @@ impl Instruction {
 
 fn leds_to_string(register_a: u8) -> String {
     let mut result = String::new();
-    for c in (0..8).map(|x| (0x80 >> x) & register_a) {
-        match c {
+    for c in (0..8).map(|x| 0x80 >> x) {
+        match c & register_a {
             0 => result.push('.'),
             _ => result.push('*'),
         }
@@ -93,19 +90,16 @@ fn parse(line: &str, labels: &HashMap<String, usize>) -> Line {
     }
 }
 
-fn try_jump(trimmed: &str, labels: &HashMap<String, usize>) -> Line {
-    //Line::ParseError
-    
-    // note: am I in trouble because trimmed is an &str instead of a string?
-    
-    match labels.get(trimmed) {
+fn try_jump(trimmed: &str, labels: &HashMap<String, usize>) -> Line {    
+    let new_label: &str = &trimmed[5..trimmed.len()];
+    match labels.get(new_label) {
         Some(line) => Line::Instruction(Instruction::Djnz{ index: *line }),
         None => Line::ParseError,
     }
 }
 
 fn try_label(trimmed: &str, labels: &HashMap<String, usize>) -> Line {
-    let mut temp = trimmed.to_owned(); // TODO: better name    
+    let mut temp = trimmed.to_owned();   
     match temp.pop() {
         // last char in trimmed line should be the semicolon
         Some(':') => {
@@ -133,11 +127,9 @@ fn is_identifier(chars: &str) -> bool {
     ret
 }
 
-// TODO: boolean instead of another enum is kind of a hack, but im lazy
 fn try_register_load(trimmed: &str, register_a: bool) -> Line {
+    // note: register_a == false means instruction is a LoadB
     let load_value = &trimmed[5..trimmed.len()].parse::<u8>();
-    //let temp_slice = trimmed[5..trimmed.len()].trim(); // TODO: is allowing a space here actually required?
-    //let load_value = &temp_slice.parse::<u8>();
     match (register_a, load_value) {
         (true, &Ok(a)) => Line::Instruction(Instruction::LoadA(a)),
         (false, &Ok(b)) => Line::Instruction(Instruction::LoadB(b)),
@@ -146,13 +138,9 @@ fn try_register_load(trimmed: &str, register_a: bool) -> Line {
 }
 
 fn run_file(file_name: &str) {
-    let mut file = File::open(file_name).expect(&(format!("Failed to open {}", file_name))); // TODO: error handling here!
+    let mut file = File::open(file_name).expect(&(format!("Failed to open {}", file_name)));
     let mut contents = String::new();
     file.read_to_string(&mut contents).expect(&(format!("Failed to read from {}", file_name)));
-    
-    // JCE: does &str actually work here?  looks like possibly yes:
-    // https://users.rust-lang.org/t/efficient-string-hashmaps-for-a-frequency-count/7752/2
-    // would need to refactor, label is technically a slice of line but currently a copy is created
     
     let mut instructions: Vec<Instruction> = vec![];
     let mut labels: HashMap<String, usize> = HashMap::new();
@@ -163,10 +151,14 @@ fn run_file(file_name: &str) {
             Line::Label(name) => { labels.insert(String::from(name), instructions.len()); },
             Line::Instruction(instruction) => instructions.push(instruction),
             Line::Empty => (),
-            Line::ParseError => (),
+            Line::ParseError => println!("Error parsing line:\n  '{}'", line),
         }
     }
     
+    //for inst in instructions {
+    //    println!("{}", inst.to_string());
+    //}
+
     // execute the instructions
     let mut register_a: u8 = 0;
     let mut register_b: u8 = 0;
@@ -179,7 +171,9 @@ fn run_file(file_name: &str) {
             Instruction::Rlca => register_a = register_a.rotate_left(1),
             Instruction::Rrca => register_a = register_a.rotate_right(1),
             Instruction::Djnz{index: i} => {
-                register_b = register_b.saturating_sub(1); // don't decrement if already 0
+                if register_b > 0 {
+                    register_b -= 1;
+                }                
                 if register_b > 0 {
                     instruction_index = i;
                     continue; // don't want to add 1 in this case, so skip that part
@@ -190,17 +184,11 @@ fn run_file(file_name: &str) {
     }
 }
 
-/*  LoadA( u8 ),
-    LoadB( u8 ),
-    Out,
-    Rlca,
-    Rrca,
-    Djnz{ index: usize },*/
-
 fn main() {
-    print!("Hello!");
-
-    run_file("input1.txt");
+    //run_file("input1.txt");
+    //run_file("input2.txt");
+    //run_file("input3.txt");
+    run_file("input4.txt");
 }
 
 #[test]
@@ -229,7 +217,9 @@ fn test_try_label() {
 #[test]
 #[allow(dead_code)]
 fn test_try_jump() {
-    
+    let mut labels: HashMap<String, usize> = HashMap::new();
+    labels.insert("label".to_string(), 0);
+    assert_eq!(try_jump("djnz label", &labels), Line::Instruction(Instruction::Djnz{ index: 0 }));
 }
 
 #[test]
